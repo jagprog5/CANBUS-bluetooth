@@ -1,18 +1,47 @@
 #include <Arduino.h>
 
-// put function declarations here:
-int myFunction(int, int);
+#include <ArduinoBLE.h>
+
+const char* UUID = "02401BCD-38A9-4218-AB87-128397ED1C3B";
+BLEService service(UUID);
+BLEStringCharacteristic characteristic(UUID, BLEWrite, 512);
 
 void setup() {
-  // put your setup code here, to run once:
-  int result = myFunction(2, 3);
+  // general setup
+  Serial.begin(9600);
+  pinMode(LED_BUILTIN, OUTPUT);
+
+  // bluetooth setup
+  while (!BLE.begin()) {
+    Serial.println("BLE init failure");
+    delay(1000);
+  }
+
+  service.addCharacteristic(characteristic);
+  BLE.addService(service);
+  BLE.setAdvertisedService(service);
+
+  // doesn't work
+  // BLE.setLocalName("Arduino Nano 33 BLE (Peripheral) - LED");
+
+  BLE.advertise();
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
-}
-
-// put function definitions here:
-int myFunction(int x, int y) {
-  return x + y;
+  BLEDevice central = BLE.central();
+  if (central) {
+    Serial.print("Received connection: ");
+    Serial.println(central.address());
+    while (central.connected()) {
+      if (characteristic.written()) {
+        String receivedValue = characteristic.value();
+        if (receivedValue == "yes") {
+          digitalWrite(LED_BUILTIN, HIGH);
+        } else {
+          digitalWrite(LED_BUILTIN, LOW);
+        }
+      }
+    }
+    Serial.println("disconnected");
+  }
 }
